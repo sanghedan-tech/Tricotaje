@@ -1,1 +1,161 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <title>Calculator Tipar Căciulă 4 Clini (Model 36)</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 750px; margin: 20px auto; padding: 0 15px; line-height: 1.5; color: #222; }
+    h2 { color: #2c5e2e; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f7f9f7; padding: 15px; border-radius: 8px; border: 1px solid #d0dcd0; }
+    label { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
+    input[type="number"] { padding: 6px; margin-top: 4px; font-size: 15px; border: 1px solid #aaa; border-radius: 4px; }
+    .checkbox-row { grid-column: span 2; flex-direction: row; align-items: center; gap: 8px; }
+    button { margin-top: 15px; padding: 10px 20px; font-size: 16px; background: #2c5e2e; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #214722; }
+    .rezultat { margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; background: #fff; }
+    .verde { color: #1b7a1e; font-weight: bold; }
+    .albastru { color: #0056b3; font-weight: bold; }
+    svg { width: 100%; max-width: 500px; height: auto; display: block; margin: 15px auto; border: 1px solid #eee; background: #fafafa; }
+  </style>
+</head>
+<body>
+
+  <h2>Calculator Tipar Tricotat: Căciulă în 4 Clini</h2>
+
+  <div class="grid">
+    <label>
+      Densitate orizontală (ochiuri în 1 cm):
+      <input type="number" id="densOriz" step="0.01" value="3.2">
+    </label>
+    <label>
+      Densitate verticală (rânduri în 1 cm):
+      <input type="number" id="densVert" step="0.01" value="5.6">
+    </label>
+    <label>
+      Circumferința capului (cm):
+      <input type="number" id="circCap" step="0.5" value="56">
+    </label>
+    <label>
+      Adâncimea/înălțimea căciulii (cm):
+      <input type="number" id="adancime" step="0.5" value="22">
+    </label>
+    <label>
+      Lățimea manșetei / îndoiturii (cm):
+      <input type="number" id="manseta" step="0.5" value="6">
+    </label>
+    <label class="checkbox-row">
+      <input type="checkbox" id="cliniCusuti">
+      Clini cusuți separat (decalează prima scădere)
+    </label>
+  </div>
+
+  <button onclick="calculeazaTipar()">Calculează tiparul</button>
+
+  <div id="output" class="rezultat" style="display:none;"></div>
+
+  <script>
+    function calculeazaTipar() {
+      const densOriz = parseFloat(document.getElementById('densOriz').value);
+      const densVert = parseFloat(document.getElementById('densVert').value);
+      const circCap = parseFloat(document.getElementById('circCap').value);
+      const adancime = parseFloat(document.getElementById('adancime').value);
+      const manseta = parseFloat(document.getElementById('manseta').value) || 0;
+      const cliniCusuti = document.getElementById('cliniCusuti').checked;
+
+      if (!densOriz || !densVert || !circCap || !adancime) {
+        alert("Te rog să completezi toate câmpurile obligatorii (fără zerouri la densitate)!");
+        return;
+      }
+
+      // 1. Lățime efectivă (ușoară lejeritate negativă ~1 cm ca în exemplul 56 -> 55 cm)
+      const latimeCm = circCap > 45 ? circCap - 1 : circCap;
+      // Rotunjire la cel mai apropiat multiplu de 8 (4 clini * număr par de ochiuri)
+      const ochiuriTotale = Math.round((latimeCm * densOriz) / 8) * 8;
+      const ochiuriClin = ochiuriTotale / 4;
+      const ochiuriVarfClin = 4; // Rămân 4 ochiuri pe clin (16 total)
+      const ochiuriVarfTotal = ochiuriVarfClin * 4;
+
+      // 2. Înălțimi în cm și rânduri
+      // Înălțimea vârfului (clinilor) este proporțională cu raza/circumferința (~45% din adâncime)
+      const inaltimeClinCm = +(adancime * 0.45).toFixed(1);
+      const inaltimeDreaptaCm = +(adancime - inaltimeClinCm).toFixed(1);
+
+      const randuriManseta = Math.round(manseta * densVert);
+      const randuriDrepte = Math.round(inaltimeDreaptaCm * densVert);
+      const randuriClin = Math.round(inaltimeClinCm * densVert);
+
+      const randStartClin = randuriManseta + randuriDrepte;
+      const randTotal = randStartClin + randuriClin;
+
+      // 3. Calculul rândurilor de scădere pe fiecare clin
+      // Fiecare pas de scădere elimină 2 ochiuri per clin (câte 1 pe fiecare parte)
+      const numarPasiScadere = (ochiuriClin - ochiuriVarfClin) / 2;
+      const offsetStart = cliniCusuti ? 2 : 0;
+      const randuriDisponibile = randuriClin - offsetStart;
+
+      let listaScaderi = [];
+      for (let i = 0; i < numarPasiScadere; i++) {
+        // Curbă ușoară: pași mai mari la bază, pași la 2 rânduri spre vârf
+        const progres = i / (numarPasiScadere - 1 || 1);
+        const curba = Math.pow(progres, 0.85);
+        let randCurent = Math.round((randStartClin + offsetStart) + curba * (randuriDisponibile - 1));
+
+        // Evităm dublarea aceluiași rând
+        if (listaScaderi.length > 0 && randCurent <= listaScaderi[listaScaderi.length - 1]) {
+          randCurent = listaScaderi[listaScaderi.length - 1] + 1;
+        }
+        listaScaderi.push(randCurent);
+      }
+
+      const randFinalReal = listaScaderi[listaScaderi.length - 1] || randTotal;
+
+      // 4. Afișare text + diagramă SVG
+      const out = document.getElementById('output');
+      out.style.display = 'block';
+      out.innerHTML = `
+        <h3>Rezultat calcul (<span class="albastru">albastru = cm</span>, <span class="verde">verde = ochiuri/rânduri</span>)</h3>
+        <svg viewBox="0 0 460 220">
+          <!-- Contur căciulă 4 clini -->
+          <polygon points="40,180 40,110 85,55 130,110 175,55 220,110 265,55 310,110 355,55 400,110 400,180"
+                   fill="none" stroke="#2c2463" stroke-width="2.5"/>
+          <!-- Linie manșetă -->
+          ${randuriManseta > 0 ? `<line x1="40" y1="150" x2="400" y2="150" stroke="#2c2463" stroke-width="1.5" stroke-dasharray="4"/>` : ''}
+          <!-- Etichete -->
+          <text x="220" y="30" text-anchor="middle" fill="#1b7a1e" font-size="14" font-weight="bold">${ochiuriVarfTotal} ochiuri se strâng cu firul</text>
+          <text x="85" y="48" text-anchor="middle" fill="#1b7a1e" font-size="12">${ochiuriVarfClin}</text>
+          <text x="175" y="48" text-anchor="middle" fill="#1b7a1e" font-size="12">${ochiuriVarfClin}</text>
+          <text x="265" y="48" text-anchor="middle" fill="#1b7a1e" font-size="12">${ochiuriVarfClin}</text>
+          <text x="355" y="48" text-anchor="middle" fill="#1b7a1e" font-size="12">${ochiuriVarfClin}</text>
+
+          <text x="85" y="128" text-anchor="middle" fill="#1b7a1e" font-size="13">${ochiuriClin}</text>
+          <text x="175" y="128" text-anchor="middle" fill="#1b7a1e" font-size="13">${ochiuriClin}</text>
+          <text x="265" y="128" text-anchor="middle" fill="#1b7a1e" font-size="13">${ochiuriClin}</text>
+          <text x="355" y="128" text-anchor="middle" fill="#1b7a1e" font-size="13">${ochiuriClin}</text>
+
+          <text x="220" y="200" text-anchor="middle" font-size="14">
+            <tspan fill="#1b7a1e" font-weight="bold">${ochiuriTotale} ochiuri</tspan> / 
+            <tspan fill="#0056b3" font-weight="bold">${latimeCm} cm</tspan>
+          </text>
+
+          <!-- Rânduri pe dreapta -->
+          <text x="410" y="154" fill="#1b7a1e" font-size="12">${randuriManseta} r.</text>
+          <text x="410" y="114" fill="#1b7a1e" font-size="12">${randStartClin} r.</text>
+          <text x="410" y="60" fill="#1b7a1e" font-size="12">${randFinalReal} r.</text>
+        </svg>
+
+        <p><strong>Instrucțiuni de lucru:</strong></p>
+        <ul>
+          <li>Montează <span class="verde">${ochiuriTotale} ochiuri</span> (<span class="albastru">${latimeCm} cm</span>).</li>
+          ${randuriManseta > 0 ? `<li>Tricotează manșeta (patent) timp de <span class="verde">${randuriManseta} rânduri</span> (<span class="albastru">${manseta} cm</span>).</li>` : ''}
+          <li>Continuă drept până la <span class="verde">rândul ${randStartClin}</span> (<span class="albastru">${inaltimeDreaptaCm} cm</span> după manșetă).</li>
+          <li>Împarte lucrul în <strong>4 clini</strong> a câte <span class="verde">${ochiuriClin} ochiuri</span> fiecare.</li>
+          <li><strong>Scăderile pe fiecare clin:</strong> scade câte <strong>1 ochi din ambele părți</strong> ale fiecărui clin în următoarele rânduri:<br>
+          <span class="verde">${listaScaderi.map(r => r + '(1)').join(', ')}</span></li>
+          <li>La final rămân <span class="verde">${ochiuriVarfTotal} ochiuri</span> (câte ${ochiuriVarfClin} per clin) pe care le strângi cu firul de lucru.</li>
+        </ul>
+      `;
+    }
+  </script>
+</body>
+</html>
 
